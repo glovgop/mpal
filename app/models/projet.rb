@@ -1,5 +1,6 @@
 class Projet < ApplicationRecord
   include LocalizedModelConcern
+  include ProjetStateMachine
   extend CsvProperties, ApplicationHelper
 
   TYPE_LOGEMENT_VALUES     = ["Maison", "Appartement"]
@@ -9,21 +10,12 @@ class Projet < ApplicationRecord
   ENERGY_EVALUATION_FIELDS = [:consommation_apres_travaux, :etiquette_apres_travaux, :gain_energetique]
   FUNDING_FIELDS           = [:travaux_ttc_amount, :travaux_ht_amount, :assiette_subventionnable_amount, :amo_amount, :maitrise_oeuvre_amount, :personal_funding_amount, :loan_amount]
 
-  STATUSES             = [:prospect, :en_cours, :proposition_enregistree, :proposition_proposee, :transmis_pour_instruction, :en_cours_d_instruction]
   INTERVENANT_STATUSES = [:prospect, :en_cours_de_montage, :depose, :en_cours_d_instruction]
   INTERVENANT_STATUSES_MAPPING = {
     prospect:               [:prospect],
     en_cours_de_montage:    [:en_cours, :proposition_enregistree, :proposition_proposee],
     depose:                 [:transmis_pour_instruction],
     en_cours_d_instruction: [:en_cours_d_instruction]
-  }
-  enum statut: {
-    prospect: 0,
-    en_cours: 1,
-    proposition_enregistree: 2,
-    proposition_proposee: 3,
-    transmis_pour_instruction: 5,
-    en_cours_d_instruction: 6
   }
 
   STEP_DEMANDEUR = 1

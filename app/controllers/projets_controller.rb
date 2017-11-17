@@ -44,7 +44,7 @@ class ProjetsController < ApplicationController
     end
 
     begin
-      @projet = ProjetInitializer.new.initialize_projet(param_numero_fiscal, param_reference_avis)
+      @projet = Projet.new(projet_params)
     rescue => e
       @projet = Projet.new(params[:projet].permit(:numero_fiscal, :reference_avis))
       flash.now[:alert] =  "Erreur : #{e.message}"
@@ -57,18 +57,13 @@ class ProjetsController < ApplicationController
       return render :new
     end
 
+    # TODO: pass this validation in projet state machine
     unless "1" == params[:proprietaire]
       flash.now[:alert] = t('sessions.erreur_proprietaire_html', anil: view_context.link_to('Anil.org', 'https://www.anil.org/')).html_safe
       return render :new
     end
 
-    unless @projet.avis_impositions.map(&:is_valid_for_current_year?).all?
-      flash.now[:alert] =  I18n.t("projets.composition_logement.avis_imposition.messages.annee_invalide", year: 2.years.ago.year)
-      return render :new
-    end
-
-    if @projet.save
-      EvenementEnregistreurJob.perform_later(label: 'creation_projet', projet: @projet)
+    if @projet.initialiser
       session[:project_id] = @projet.id
       return redirect_to projet_demandeur_path(@projet), notice: t('projets.messages.creation.corps')
     end
@@ -77,6 +72,11 @@ class ProjetsController < ApplicationController
   end
 
 private
+
+  def projet_params
+    params.require(:projet).permit(:numero_fiscal, :reference_avis, :proprietaire)
+  end
+
   def param_numero_fiscal
     params[:projet][:numero_fiscal].to_s.gsub(/\D+/, '')
   end

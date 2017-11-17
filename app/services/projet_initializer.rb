@@ -4,8 +4,8 @@ class ProjetInitializer
     @service_adresse = service_adresse || ApiBan.new
   end
 
-  def initialize_projet(numero_fiscal, reference_avis)
-    projet = Projet.new
+  def initialize_projet(numero_fiscal, reference_avis, projet = nil)
+    projet ||= Projet.new
 
     @service_particulier ||= ApiParticulier.new(numero_fiscal, reference_avis)
     contribuable = @service_particulier.retrouve_contribuable

@@ -19,7 +19,7 @@ describe Projet do
       projet.errors[attribute].present?
     end
   end
-    
+
   describe "validations" do
     let(:projet) { build :projet }
     it { expect(projet).to be_valid }
@@ -132,7 +132,7 @@ describe Projet do
         it { expect(Projet.for_text("occitanie")).to eq [projet1] }
       end
     end
-    
+
     describe ".for_intervenant_status" do
       let(:projet1) { create :projet, statut: :prospect }
       let(:projet2) { create :projet, statut: :en_cours }
@@ -999,6 +999,39 @@ describe Projet do
         it "j'ai une action à faire sinon" do
           expect(projet_prospect.action_agent_pris?).to be_truthy
         end
+      end
+    end
+  end
+
+  describe "workflow" do
+    let(:projet) { Projet.new }
+    it "le projet démarre en statut prospect" do
+      expect(projet.statut).to eq('prospect')
+    end
+
+    it "le projet devrait pouvoir être initialisé" do
+      expect(projet).to be_can_initialiser
+    end
+
+    describe "l'initialisation de projet" do
+      let(:projet) { Projet.new(
+        numero_fiscal: '1234',
+        reference_avis: '1234'
+      ) }
+
+      it "le projet devrait appeler ProjetInitializer" do
+        expect_any_instance_of(ProjetInitializer).to receive(:initialize_projet).with(
+          projet.numero_fiscal,
+          projet.reference_avis,
+          projet
+        )
+        projet.initialiser
+      end
+      it "le projet devrait appeler ProjetInitializer" do
+        expect(EvenementEnregistreurJob).to receive(:perform_later).with(
+          label: 'creation_projet', projet: projet
+        )
+        projet.initialiser
       end
     end
   end

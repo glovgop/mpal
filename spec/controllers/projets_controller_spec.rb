@@ -107,6 +107,21 @@ describe ProjetsController do
         end
       end
 
+      context "quand l'année est invalide" do
+        let(:numero_fiscal)  { Fakeweb::ApiParticulier::NUMERO_FISCAL_ANNEE_INVALIDE }
+        let(:reference_avis) { Fakeweb::ApiParticulier::REFERENCE_AVIS_ANNEE_INVALIDE }
+        it "je suis sur la même page" do
+          post :create, params: {
+            projet: {
+              numero_fiscal: numero_fiscal,
+              reference_avis: reference_avis,
+            },
+            proprietaire: "1",
+          }
+          expect(response).to render_template(:new)
+        end
+      end
+
       context "quand l'année de revenus n'est pas valide" do
         let(:numero_fiscal)  { Fakeweb::ApiParticulier::NUMERO_FISCAL_ANNEE_INVALIDE }
         let(:reference_avis) { Fakeweb::ApiParticulier::REFERENCE_AVIS_ANNEE_INVALIDE }

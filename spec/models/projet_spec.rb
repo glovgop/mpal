@@ -1,6 +1,7 @@
 require 'rails_helper'
 require 'support/mpal_helper'
 require 'support/api_particulier_helper'
+require 'support/api_ban_helper'
 
 describe Projet do
   matcher :allow_updating_of do |attribute|
@@ -1032,6 +1033,43 @@ describe Projet do
           label: 'creation_projet', projet: projet
         )
         projet.initialiser
+      end
+    end
+
+    describe "le projet est en prospect" do
+      let(:projet) { create(:projet) }
+      before do
+        Fakeweb::ApiBan.register_mare_uri
+        Fakeweb::ApiBan.register_port_uri
+      end
+
+      it "prospect_state devrait démarrer avec l'état initial" do
+        expect(projet.prospect_state).to eq('initial')
+      end
+
+      it "devrait pouvoir déclencher l'évènement enregistrer_demandeur" do
+        expect(projet).to be_can_enregistrer_demandeur
+      end
+
+      it "devrait permettre la transition vers demandeur avec les bons paramètres" do
+        projet_params = {
+          'adresse_postale' => Fakeweb::ApiBan::ADDRESS_MARE,
+          'adresse_a_renover' => Fakeweb::ApiBan::ADDRESS_PORT,
+          'tel' => 'test',
+          'email' => 'test@test.user',
+          'personne_attributes' => {
+            'email' => 'test@personne.user'
+          }
+        }
+
+        projet.enregistrer_demandeur(projet_params)
+
+        expect(projet).to be_persisted
+        expect(projet.adresse_postale.description).to eq(Fakeweb::ApiBan::ADDRESS_MARE)
+        expect(projet.adresse_a_renover.description).to eq(Fakeweb::ApiBan::ADDRESS_PORT)
+        expect(projet.tel).to eq('test')
+        expect(projet.email).to eq('test@test.user')
+        expect(projet.personne.email).to eq('test@personne.user')
       end
     end
   end

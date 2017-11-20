@@ -47,5 +47,59 @@ module ProjetStateMachine
         transition :prospect => :prospect
       end
     end
+
+    state_machine :prospect_state, initial: :initial do
+      state :initial
+      state :demandeur do
+        validate :demandeur_validation
+
+        def demandeur_validation
+          return if occupants.where(demandeur: true).present?
+          errors[:base] << I18n.t('demarrage_projet.demandeur.erreurs.missing_demandeur')
+        end
+      end
+
+      before_transition :initial => :demandeur do |projet, transition|
+        projet_params = transition.args[0]&.to_hash
+        demandeur_params = transition.args[1]&.to_hash
+        projet_params.assert_valid_keys(
+          'adresse_postale',
+          'adresse_a_renover',
+          'tel',
+          'email',
+          'demandeur',
+          'demandeur_attributes',
+          'personne_attributes'
+        )
+        if projet_params.fetch('personne_attributes', {empty: nil}).values.all?(&:blank?)
+          projet_params.delete('personne_attributes')
+        end
+
+        # TODO: creates orphelin nodes
+        projet.adresse_postale = ProjetInitializer.new.precise_adresse(
+          projet_params.delete('adresse_postale'),
+          previous_value: projet.adresse_postale,
+          required: true
+        )
+
+        # TODO: creates orphelin nodes
+        projet.adresse_a_renover = ProjetInitializer.new.precise_adresse(
+          projet_params.delete('adresse_a_renover'),
+          previous_value: projet.adresse_a_renover,
+          required: false
+        )
+
+        # TODO: establish that as nested attributes
+        if (demandeur = projet_params.delete('demandeur')).present?
+          new_demandeur = projet.change_demandeur(demandeur)
+          new_demandeur.update(demandeur_params)
+        end
+
+        projet.assign_attributes(projet_params)
+      end
+      event :enregistrer_demandeur do
+        transition :initial => :demandeur
+      end
+    end
   end
 end

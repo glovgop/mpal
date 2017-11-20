@@ -29,8 +29,7 @@ private
 
   def render_show
     @projet_courant.personne ||= Personne.new
-    @demandeur ||= @projet_courant.demandeur
-    @demandeur ||= Occupant.new
+    @demandeur = @projet_courant.demandeur || Occupant.new
 
     @page_heading = I18n.t("demarrage_projet.demandeur.section_demandeur")
     @declarants = @projet_courant.occupants.declarants.collect { |o| [ o.fullname, o.id ] }
@@ -42,9 +41,29 @@ private
   # Update ---------------------
 
   def projet_params
+    # params.require(:projet).permit(
+    #   :tel,
+    #   :email,
+    # )
     params.require(:projet).permit(
       :tel,
       :email,
+      :demandeur,
+      :adresse_postale,
+      :adresse_a_renover,
+      occupants_attributes: [
+        :id,
+        :civility
+      ],
+      personne_attributes: [
+        :id,
+        :prenom,
+        :nom,
+        :tel,
+        :email,
+        :lien_avec_demandeur,
+        :civilite
+      ]
     )
   end
 
@@ -67,50 +86,53 @@ private
   end
 
   def save_demandeur
-    begin
-      @projet_courant.adresse_postale = ProjetInitializer.new.precise_adresse(
-        params[:projet][:adresse_postale],
-        previous_value: @projet_courant.adresse_postale,
-        required: true
-      )
+    res = begin
+      @projet_courant.enregistrer_demandeur(projet_params, demandeur_params)
+      # @projet_courant.adresse_postale = ProjetInitializer.new.precise_adresse(
+      #   params[:projet][:adresse_postale],
+      #   previous_value: @projet_courant.adresse_postale,
+      #   required: true
+      # )
 
-      @projet_courant.adresse_a_renover = ProjetInitializer.new.precise_adresse(
-        params[:projet][:adresse_a_renover],
-        previous_value: @projet_courant.adresse_a_renover,
-        required: false
-      )
+      # @projet_courant.adresse_a_renover = ProjetInitializer.new.precise_adresse(
+      #   params[:projet][:adresse_a_renover],
+      #   previous_value: @projet_courant.adresse_a_renover,
+      #   required: false
+      # )
     rescue => e
       flash.now[:alert] = e.message
       return false
     end
 
-    @projet_courant.assign_attributes(projet_params)
-    if "1" == params[:contact]
-      @projet_courant.assign_attributes(projet_personne_params)
-    else
-      if @projet_courant.personne.present?
-        personne = @projet_courant.personne
-        @projet_courant.update_attribute(:personne_id, nil)
-        personne.destroy!
-      else
-        @projet_courant.personne = nil
-      end
-    end
-    unless @projet_courant.save
-      return false
-    end
+    # @projet_courant.assign_attributes(projet_params)
+    # if "1" == params[:contact]
+    #   @projet_courant.assign_attributes(projet_personne_params)
+    # else
+    #   if @projet_courant.personne.present?
+    #     personne = @projet_courant.personne
+    #     @projet_courant.update_attribute(:personne_id, nil)
+    #     personne.destroy!
+    #   else
+    #     @projet_courant.personne = nil
+    #   end
+    # end
+    # unless @projet_courant.save
+    #   return false
+    # end
 
+    # TODO: to remove if useless app/model/concerns/projet_state_machine:56
     demandeur_id = params[:projet][:demandeur]
     if demandeur_id.blank?
       flash.now[:alert] = t('demarrage_projet.demandeur.erreurs.missing_demandeur')
       return false
     end
-    if !assign_demandeur(demandeur_id)
-      flash.now[:alert] = t('demarrage_projet.demandeur.erreurs.enregistrement_demandeur')
-      return false
-    end
+    # if !assign_demandeur(demandeur_id)
+    #   flash.now[:alert] = t('demarrage_projet.demandeur.erreurs.enregistrement_demandeur')
+    #   return false
+    # end
 
-    true
+    # true
+    res
   end
 
   def assign_demandeur(demandeur_id)

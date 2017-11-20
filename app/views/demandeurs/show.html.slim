@@ -15,7 +15,8 @@
       - has_reliable_person = params[:contact] ? "1" == params[:contact] : @projet_courant.personne_id.present?
       .js-reliable-person-select
         label for="reliable-person-select-no"
-          input#reliable-person-select-no name="contact" type="radio" value="0" checked=(has_reliable_person ? false : "checked") /
+          - f.fields_for :personne do
+            = f.radio_button :_destroy, true, id: 'reliable-person-select-no'
           = t("demarrage_projet.demandeur.reliable_person_select_no")
         label for="js-reliable-person-select-yes"
           input#js-reliable-person-select-yes name="contact" type="radio" value="1" checked=(has_reliable_person ? "checked" : false) /

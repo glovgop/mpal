@@ -29,7 +29,7 @@ class Projet < ApplicationRecord
 
   # Personne de confiance
   belongs_to :personne, dependent: :destroy
-  accepts_nested_attributes_for :personne
+  accepts_nested_attributes_for :personne, allow_destroy: true
 
   # Compte utilisateur
   has_many :projets_users, dependent: :destroy
@@ -54,6 +54,7 @@ class Projet < ApplicationRecord
   has_many :agents_projets, dependent: :destroy
 
   has_many :occupants, through: :avis_impositions
+  accepts_nested_attributes_for :occupants
 
   has_many :documents, dependent: :destroy, as: :category
   accepts_nested_attributes_for :documents

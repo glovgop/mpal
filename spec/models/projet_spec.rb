@@ -1071,6 +1071,46 @@ describe Projet do
         expect(projet.email).to eq('test@test.user')
         expect(projet.personne.email).to eq('test@personne.user')
       end
+
+      describe "Le projet est en demandeur" do
+        let(:projet) { create(:projet, :with_demandeur)}
+        before do
+          projet.update_attribute(:prospect_state, 'demandeur')
+        end
+        it "devrait pouvoir aller à l'état avis_imposition" do
+          expect(projet).to be_can_validate_avis_imposition
+        end
+      end
+
+      describe "le projet est en avis_imposition" do
+        let(:projet) { create(:projet, :with_demandeur)}
+        before do
+          projet.update_attribute(:prospect_state, 'avis_imposition')
+        end
+        it "devrait pouvoir aller à l'état occupants" do
+          expect(projet).to be_can_validate_occupants
+        end
+      end
+
+      describe "le projet est en occupants" do
+        let(:projet) { create(:projet, :with_demandeur)}
+        before do
+          projet.update_attribute(:prospect_state, 'occupants')
+        end
+        it "devrait pouvoir aller à l'état demande" do
+          expect(projet).to be_can_validate_demande
+        end
+      end
+
+      describe "le projet est en demande" do
+        let(:projet) { create(:projet, :with_demandeur)}
+        before do
+          projet.update_attribute(:prospect_state, 'demande')
+        end
+        it "devrait pouvoir aller à l'état mise_en_relation" do
+          expect(projet).to be_can_validate_mise_en_relation
+        end
+      end
     end
   end
 end

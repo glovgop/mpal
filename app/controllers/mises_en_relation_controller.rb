@@ -24,26 +24,25 @@ class MisesEnRelationController < ApplicationController
   end
 
   def update
-    eligible = @projet_courant.preeligibilite(@projet_courant.annee_fiscale_reference) != :plafond_depasse
     @projet_courant.update_attribute(
       :disponibilite,
       params[:projet][:disponibilite]
     ) if params[:projet].present?
 
+    eligible = @projet_courant.preeligibilite(@projet_courant.annee_fiscale_reference) != :plafond_depasse
+
+    # TODO: find a way to manage flash messages by projet state
     if (@projet_courant.intervenants.include?(pris) || rod_response.scheduled_operation?) && eligible
       operateur = rod_response.operateurs.first
-      @projet_courant.contact_operateur!(operateur.reload)
-      @projet_courant.commit_with_operateur!(operateur.reload)
       flash[:success] = t("invitations.messages.succes", intervenant: operateur.raison_sociale)
     else
-      invitation = @projet_courant.invite_pris!(pris)
-      Projet.notify_intervenant_of(invitation) if @projet_courant.eligible?
       flash[:success] = t("invitations.messages.succes", intervenant: pris.raison_sociale)
     end
-    @projet_courant.invite_instructeur! rod_response.instructeur
+    @projet_courant.validate_mise_en_relation(rod_response)
     redirect_to projet_path(@projet_courant)
   rescue => e
     Rails.logger.error e.message
+    raise e
     redirect_to(
       projet_mise_en_relation_path(@projet_courant),
       alert: t("demarrage_projet.mise_en_relation.error")

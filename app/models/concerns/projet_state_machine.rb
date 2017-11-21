@@ -44,7 +44,7 @@ module ProjetStateMachine
         EvenementEnregistreurJob.perform_later(label: 'creation_projet', projet: projet)
       end
       event :initialiser do
-        transition :prospect => :prospect
+        transition to: :prospect
       end
     end
 
@@ -58,6 +58,11 @@ module ProjetStateMachine
           errors[:base] << I18n.t('demarrage_projet.demandeur.erreurs.missing_demandeur')
         end
       end
+      state :avis_imposition
+      state :occupants
+      state :demande
+      state :eligibilite
+      state :mise_en_relation
 
       before_transition :initial => :demandeur do |projet, transition|
         projet_params = transition.args[0]&.to_hash
@@ -98,7 +103,39 @@ module ProjetStateMachine
         projet.assign_attributes(projet_params)
       end
       event :enregistrer_demandeur do
-        transition :initial => :demandeur
+        transition to: :demandeur
+      end
+
+      # TODO: pass by a specific action to trigger this
+      event :validate_avis_imposition do
+        transition to: :avis_imposition
+      end
+      event :validate_occupants do
+        transition to: :occupants
+      end
+      event :validate_demande do
+        transition to: :demande
+      end
+      event :validate_eligibilite do
+        transition to: :eligibilite
+      end
+      before_transition to: :mise_en_relation do |projet, transition|
+        eligible = projet.preeligibilite(projet.annee_fiscale_reference) != :plafond_depasse
+        rod_response = transition.args[0]
+        pris = !projet.eligible? ? rod_response.pris_eie : rod_response.pris
+
+        if (projet.intervenants.include?(pris) || rod_response.scheduled_operation?) && eligible
+          operateur = rod_response.operateurs.first
+          projet.contact_operateur!(operateur.reload)
+          projet.commit_with_operateur!(operateur.reload)
+        else
+          invitation = projet.invite_pris!(pris)
+          Projet.notify_intervenant_of(invitation) if projet.eligible?
+        end
+        projet.invite_instructeur! rod_response.instructeur
+      end
+      event :validate_mise_en_relation do
+        transition to: :mise_en_relation
       end
     end
   end

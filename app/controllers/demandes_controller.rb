@@ -18,6 +18,7 @@ class DemandesController < ApplicationController
       init_show
       return render :show
     end
+    @projet_courant.validate_demande
     redirect_to_next_step
   end
 

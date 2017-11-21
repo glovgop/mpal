@@ -12,6 +12,7 @@ class EligibilitiesController < ApplicationController
     fetch_pris
     if @projet_courant.locked_at.blank?
       @projet_courant.update_attributes(locked_at: Time.now)
+      @projet_courant.validate_eligibilite
     end
     @page_heading = "Mon résultat"
   end

@@ -63,7 +63,7 @@ class DossiersController < ApplicationController
     @page_heading = "Proposer des opérateurs"
     if request.post?
       begin
-        if @projet_courant.suggest_operateurs!(suggested_operateurs_params[:suggested_operateur_ids])
+        if @projet_courant.suggest_operateurs(suggested_operateurs_params[:suggested_operateur_ids])
           message = I18n.t("recommander_operateurs.succes",
                            count:     @projet_courant.pris_suggested_operateurs.count,
                            demandeur: @projet_courant.demandeur.fullname)

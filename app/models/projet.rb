@@ -395,33 +395,6 @@ class Projet < ApplicationRecord
     Tools.calcule_preeligibilite(calcul_revenu_fiscal_reference_total(annee_revenus), departement, nb_total_occupants)
   end
 
-  def suggest_operateurs!(operateur_ids)
-    if operateur.present?
-      raise "Cannot suggest an operator: the projet is already committed with an operator (#{operateur.raison_sociale})"
-    end
-
-    if operateur_ids.blank?
-      errors[:base] << I18n.t('recommander_operateurs.errors.blank')
-      return false
-    end
-
-    invitations.where(suggested: true).each do |invitation|
-      invitation.update(suggested: false)
-      invitation.destroy! unless invitation.contacted
-    end
-
-    operateur_ids.each do |operateur_id|
-      self.invitations.find_or_create_by(intervenant_id: operateur_id).update(suggested: true)
-    end
-
-    if save
-      ProjetMailer.recommandation_operateurs(self).deliver_later!
-      true
-    else
-      false
-    end
-  end
-
   def contact_operateur!(operateur_to_contact)
     previous_operateur = contacted_operateur
     return if previous_operateur == operateur_to_contact

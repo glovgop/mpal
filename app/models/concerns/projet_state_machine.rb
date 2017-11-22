@@ -63,6 +63,15 @@ module ProjetStateMachine
       state :demande
       state :eligibilite
       state :mise_en_relation
+      state :operateurs_suggested do
+        validate :suggested_operateurs_validation
+
+        def suggested_operateurs_validation
+          return if invitations.where(suggested: true).present?
+          errors[:base] << I18n.t('recommander_operateurs.errors.blank')
+        end
+      end
+      state :operateur_contacted
 
       before_transition :initial => :demandeur do |projet, transition|
         projet_params = transition.args[0]&.to_hash
@@ -136,6 +145,32 @@ module ProjetStateMachine
       end
       event :validate_mise_en_relation do
         transition to: :mise_en_relation
+      end
+
+      before_transition to: :operateurs_suggested do |projet, transition|
+        operateur_ids = transition.args[0]
+        if projet.operateur.present?
+          raise "Cannot suggest an operator: the projet is already committed with an operator (#{projet.operateur.raison_sociale})"
+        end
+
+        projet.invitations.where(suggested: true).each do |invitation|
+          invitation.update(suggested: false)
+          invitation.destroy! unless invitation.contacted
+        end
+
+        operateur_ids.each do |operateur_id|
+          projet.invitations.find_or_create_by(intervenant_id: operateur_id).update(suggested: true)
+        end
+      end
+      after_transition to: :operateurs_suggested do |projet, _transition|
+        ProjetMailer.recommandation_operateurs(projet).deliver_later!
+      end
+      event :suggest_operateurs do
+        transition to: :operateurs_suggested
+      end
+
+      event :contact_operateur do
+        transition to: :operateur_contacted
       end
     end
   end

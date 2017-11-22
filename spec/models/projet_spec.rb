@@ -264,7 +264,7 @@ describe Projet do
     before do
       projet3.invite_instructeur! instructeur
       projet4.invite_instructeur! instructeur
-      projet4.suggest_operateurs! [operateur4.id]
+      projet4.suggest_operateurs [operateur4.id]
     end
 
     describe "un opérateur voit les projets sur lesquels il est affecté ou recommandé" do
@@ -451,29 +451,29 @@ describe Projet do
     end
   end
 
-  describe "#suggest_operateurs!" do
+  describe "#suggest_operateurs" do
     let(:projet)     { create :projet }
     let(:operateurA) { create :operateur }
     let(:operateurB) { create :operateur }
 
     it "ajoute les opérateurs aux opérateurs suggérés" do
       expect(ProjetMailer).to receive(:recommandation_operateurs).and_call_original
-      result = projet.suggest_operateurs!([operateurA.id, operateurB.id])
+      result = projet.suggest_operateurs([operateurA.id, operateurB.id])
       expect(result).to be true
       expect(projet.pris_suggested_operateurs.count).to eq 2
       expect(projet.errors).to be_empty
     end
 
     it "signale une erreur si aucun opérateur n'est suggéré" do
-      result = projet.suggest_operateurs!([])
+      result = projet.suggest_operateurs([])
       expect(result).to be false
       expect(projet.errors).to be_present
     end
 
     context "avec un opérateur déjà recommandé" do
       before do
-        projet.suggest_operateurs!([operateurA.id])
-        projet.suggest_operateurs!([operateurB.id])
+        projet.suggest_operateurs([operateurA.id])
+        projet.suggest_operateurs([operateurB.id])
       end
 
       it "remplace l'opérateur précédemment recommandé" do

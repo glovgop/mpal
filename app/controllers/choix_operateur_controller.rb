@@ -19,7 +19,9 @@ class ChoixOperateurController < ApplicationController
 
   def choose
     begin
+      # TODO permit
       @projet_courant.update_attribute(:disponibilite, params[:projet][:disponibilite])
+      # TODO as a nested form
       operateur = Intervenant.find_by_id(params[:operateur_id])
       unless @projet_courant.contacted_operateur == operateur
         @projet_courant.contact_operateur!(operateur)

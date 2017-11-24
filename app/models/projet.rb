@@ -79,13 +79,13 @@ class Projet < ApplicationRecord
   validates :email, email: true, presence: true, uniqueness: { case_sensitive: false }, on: :update
   validates :adresse_postale, presence: true, on: :update
   validates :note_degradation, :note_insalubrite, :inclusion => 0..1, allow_nil: true
-  validates :date_de_visite, :assiette_subventionnable_amount, presence: { message: :blank_feminine }, on: :proposition
-  validates :travaux_ht_amount, :travaux_ttc_amount, presence: true, on: :proposition
+  # validates :date_de_visite, :assiette_subventionnable_amount, presence: { message: :blank_feminine }, on: :proposition
+  # validates :travaux_ht_amount, :travaux_ttc_amount, presence: true, on: :proposition
   validates :consommation_avant_travaux, :consommation_apres_travaux, :gain_energetique, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 999999999 }, allow_nil: true
   validates :modified_revenu_fiscal_reference, numericality: { only_integer: true }, allow_nil: true
   validates *FUNDING_FIELDS, :big_number => true
   validate  :validate_frozen_attributes
-  validate  :validate_theme_count, on: :proposition
+  # validate  :validate_theme_count, on: :proposition
 
   localized_numeric_setter :note_degradation
   localized_numeric_setter :note_insalubrite
@@ -393,29 +393,6 @@ class Projet < ApplicationRecord
 
   def preeligibilite(annee_revenus)
     Tools.calcule_preeligibilite(calcul_revenu_fiscal_reference_total(annee_revenus), departement, nb_total_occupants)
-  end
-
-  def contact_operateur!(operateur_to_contact)
-    previous_operateur = contacted_operateur
-    return if previous_operateur == operateur_to_contact
-
-    if operateur.present?
-      raise "Cannot invite an operator: the projet is already committed with an operator (#{operateur.raison_sociale})"
-    end
-
-    invitation = Invitation.where(projet: self, intervenant: operateur_to_contact).first_or_create!
-    invitation.update(contacted: true)
-    Projet.notify_intervenant_of(invitation)
-
-    if previous_operateur
-      previous_invitation = invitations.where(intervenant: previous_operateur).first
-      ProjetMailer.resiliation_operateur(previous_invitation).deliver_later!
-      if previous_invitation.suggested
-        previous_invitation.update(contacted: false)
-      else
-        previous_invitation.destroy!
-      end
-    end
   end
 
   def invite_pris!(pris)

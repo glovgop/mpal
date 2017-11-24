@@ -33,7 +33,11 @@ module ProjetStateMachine
 
       state :en_cours
       state :proposition_enregistree
-      state :proposition_proposee
+      state :proposition_proposee do
+        validates :date_de_visite, :assiette_subventionnable_amount, presence: { message: :blank_feminine }
+        validates :travaux_ht_amount, :travaux_ttc_amount, presence: true
+        validate  :validate_theme_count
+      end
       state :transmis_pour_instruction
       state :en_cours_d_instruction
 
@@ -45,6 +49,22 @@ module ProjetStateMachine
       end
       event :initialiser do
         transition to: :prospect
+      end
+
+      after_transition to: :en_cours do |projet, _transition|
+        ProjetMailer.notification_engagement_operateur(projet).deliver_later!
+        EvenementEnregistreurJob.perform_later(label: 'choix_intervenant', projet: projet, producteur: projet.operateur)
+      end
+      event :etablissement_de_dossier do
+        transition to: :en_cours
+      end
+
+      after_transition to: :proposition_proposee do |projet, _transition|
+        ProjetMailer.notification_validation_dossier(projet).deliver_later!
+        EvenementEnregistreurJob.perform_later(label: 'validation_proposition', projet: projet, producteur: projet.operateur)
+      end
+      event :proposer do
+        transition to: :proposition_proposee
       end
     end
 
@@ -72,6 +92,14 @@ module ProjetStateMachine
         end
       end
       state :operateur_contacted
+      state :operateur_commited do
+        validate :operateur_validation
+
+        def operateur_validation
+          return if operateur
+          errors[:base] << "Vous devez choisir un opérateur"
+        end
+      end
 
       before_transition :initial => :demandeur do |projet, transition|
         projet_params = transition.args[0]&.to_hash
@@ -115,19 +143,23 @@ module ProjetStateMachine
         transition to: :demandeur
       end
 
-      # TODO: pass by a specific action to trigger this
+      # TODO: pass by a specific controller action and redirect to trigger this
       event :validate_avis_imposition do
         transition to: :avis_imposition
       end
+
       event :validate_occupants do
         transition to: :occupants
       end
+
       event :validate_demande do
         transition to: :demande
       end
+
       event :validate_eligibilite do
         transition to: :eligibilite
       end
+
       before_transition to: :mise_en_relation do |projet, transition|
         eligible = projet.preeligibilite(projet.annee_fiscale_reference) != :plafond_depasse
         rod_response = transition.args[0]
@@ -169,8 +201,46 @@ module ProjetStateMachine
         transition to: :operateurs_suggested
       end
 
+      before_transition to: :operateur_contacted do |projet, transition|
+        operateur_to_contact = transition.args[0]
+        previous_operateur = projet.contacted_operateur
+        next if previous_operateur == operateur_to_contact
+
+        if projet.operateur.present?
+          raise "Cannot invite an operator: the projet is already committed with an operator (#{projet.operateur.raison_sociale})"
+        end
+
+        invitation = Invitation.where(projet: projet, intervenant: operateur_to_contact).first_or_create!
+        invitation.update(contacted: true)
+        Projet.notify_intervenant_of(invitation)
+
+        if previous_operateur
+          previous_invitation = projet.invitations.where(intervenant: previous_operateur).first
+          ProjetMailer.resiliation_operateur(previous_invitation).deliver_later!
+          if previous_invitation.suggested
+            previous_invitation.update(contacted: false)
+          else
+            previous_invitation.destroy!
+          end
+        end
+      end
       event :contact_operateur do
         transition to: :operateur_contacted
+      end
+
+      before_transition to: :operateur_committed do |projet, transition|
+        committed_operateur = transition.args[0]
+        raise "Commiting with an operateur expects a projet in `prospect` state, but got a `#{statut}` state instead" unless projet.prosect?
+        raise "To commit with an operateur there should be no pre-existing operateur" unless projet.operateur.blank?
+        raise "Cannot commit with an operateur: the operateur is empty" unless committed_operateur.present?
+
+        projet.update(operateur: committed_operateur)
+      end
+      after_transition to: :operateur_committed do |projet, _transition|
+        projet.etablissement_de_dossier
+      end
+      event :commit_with_operateur do
+        transition to: :operateur_committed
       end
     end
   end

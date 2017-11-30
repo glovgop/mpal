@@ -32,10 +32,6 @@ describe Projet do
     it { is_expected.to validate_uniqueness_of(:email).case_insensitive.on(:update) }
     it { is_expected.not_to validate_presence_of(:tel) }
     it { is_expected.not_to validate_presence_of(:date_de_visite) }
-    it { is_expected.to validate_presence_of(:date_de_visite).with_message(:blank_feminine).on(:proposition) }
-    it { is_expected.to validate_presence_of(:assiette_subventionnable_amount).with_message(:blank_feminine).on(:proposition) }
-    it { is_expected.to validate_presence_of(:travaux_ht_amount).on(:proposition) }
-    it { is_expected.to validate_presence_of(:travaux_ttc_amount).on(:proposition) }
     it { is_expected.to validate_inclusion_of(:note_degradation).in_range(0..1) }
     it { is_expected.to validate_inclusion_of(:note_insalubrite).in_range(0..1) }
     it { is_expected.to validate_numericality_of(:consommation_avant_travaux).is_greater_than_or_equal_to(0).allow_nil }
@@ -138,7 +134,7 @@ describe Projet do
       let(:projet1) { create :projet, statut: :prospect }
       let(:projet2) { create :projet, statut: :en_cours }
       let(:projet3) { create :projet, statut: :proposition_enregistree }
-      let(:projet4) { create :projet, statut: :proposition_proposee }
+      let(:projet4) { create :projet, :proposition_proposee }
       let(:projet5) { create :projet, statut: :transmis_pour_instruction }
       let(:projet6) { create :projet, statut: :en_cours_d_instruction }
 
@@ -1110,6 +1106,25 @@ describe Projet do
         it "devrait pouvoir aller à l'état mise_en_relation" do
           expect(projet).to be_can_validate_mise_en_relation
         end
+      end
+    end
+
+    describe "le projet est en proposition proposée" do
+      subject { create(:projet, :proposition_proposee) }
+      let(:projet) { subject }
+
+      it { is_expected.to validate_presence_of(:date_de_visite).with_message(:blank_feminine).on(:proposition) }
+      it { is_expected.to validate_presence_of(:assiette_subventionnable_amount).with_message(:blank_feminine).on(:proposition) }
+      it { is_expected.to validate_presence_of(:travaux_ht_amount).on(:proposition) }
+      it { is_expected.to validate_presence_of(:travaux_ttc_amount).on(:proposition) }
+    end
+
+    describe "le projet est transmis pour instruction" do
+      let(:projet) { create :projet, :transmis_pour_instruction }
+
+      it "devrait appeler create dossier du service opal" do
+        expect_any_instance_of(Opal).to receive(:create_dossier!)
+        projet.create_dossier
       end
     end
   end

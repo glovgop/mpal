@@ -135,7 +135,6 @@ FactoryGirl.define do
       end
     end
 
-
     trait :with_invited_instructeur do
       after(:build) do |projet|
         instructeur = create(:instructeur, departements: [projet.departement])
@@ -212,6 +211,11 @@ FactoryGirl.define do
       with_demande
       with_assigned_operateur
       with_selected_prestation
+
+      date_de_visite { Date.today }
+      travaux_ht_amount { rand(10.0..1000.0) }
+      travaux_ttc_amount { rand(10.0..1000.0) }
+      assiette_subventionnable_amount { rand(10.0..1000.0) }
     end
 
     trait :transmis_pour_instruction do

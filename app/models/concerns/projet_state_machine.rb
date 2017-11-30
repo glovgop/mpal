@@ -30,17 +30,25 @@ module ProjetStateMachine
           errors[:base] << I18n.t("projets.composition_logement.avis_imposition.messages.annee_invalide", year: 2.years.ago.year)
         end
       end
-
       state :en_cours
       state :proposition_enregistree
       state :proposition_proposee do
         validates :date_de_visite, :assiette_subventionnable_amount, presence: { message: :blank_feminine }
         validates :travaux_ht_amount, :travaux_ttc_amount, presence: true
         validate  :validate_theme_count
+
+        def validate_theme_count
+          if 2 < themes.count
+            errors.add(:theme_ids, "vous ne pouvez en sélectionner que 2 maximum")
+            return false
+          end
+          true
+        end
       end
       state :transmis_pour_instruction
       state :en_cours_d_instruction
 
+      # ProjetsController#create
       before_transition to: :prospect do |projet, transition|
         ProjetInitializer.new.initialize_projet(projet.numero_fiscal, projet.reference_avis, projet)
       end
@@ -51,6 +59,7 @@ module ProjetStateMachine
         transition to: :prospect
       end
 
+      # ProjetStateMachine#commit_with_operateur
       after_transition to: :en_cours do |projet, _transition|
         ProjetMailer.notification_engagement_operateur(projet).deliver_later!
         EvenementEnregistreurJob.perform_later(label: 'choix_intervenant', projet: projet, producteur: projet.operateur)
@@ -59,12 +68,37 @@ module ProjetStateMachine
         transition to: :en_cours
       end
 
-      after_transition to: :proposition_proposee do |projet, _transition|
+      # DossiersController#proposer
+      after_transition :en_cours => :proposition_proposee do |projet, _transition|
         ProjetMailer.notification_validation_dossier(projet).deliver_later!
         EvenementEnregistreurJob.perform_later(label: 'validation_proposition', projet: projet, producteur: projet.operateur)
       end
       event :proposer do
         transition to: :proposition_proposee
+      end
+
+      # TransmissionsController#create
+      before_transition to: :transmis_pour_instruction do |projet, transition|
+        instructeur = projet.invited_instructeur
+        invitation = projet.invitations.find_by(intervenant: instructeur)
+        return false unless invitation.update(intermediaire: projet.operateur)
+        projet.date_depot = Time.now
+        ProjetMailer.mise_en_relation_intervenant(invitation).deliver_later!
+        ProjetMailer.accuse_reception(projet).deliver_later!
+        EvenementEnregistreurJob.perform_later(label: 'transmis_instructeur', projet: projet, producteur: invitation)
+        true
+      end
+      event :transmettre do
+        transition to: :transmis_pour_instruction
+      end
+
+      # DossiersOpalController#create
+      before_transition to: :en_cours_d_instruction do |projet, transition|
+        current_agent = transition.args[0]
+        Opal.new(OpalClient).create_dossier!(projet, current_agent)
+      end
+      event :create_dossier do
+        transition to: :en_cours_d_instruction
       end
     end
 
@@ -101,6 +135,7 @@ module ProjetStateMachine
         end
       end
 
+      # DemandeursController#update
       before_transition :initial => :demandeur do |projet, transition|
         projet_params = transition.args[0]&.to_hash
         demandeur_params = transition.args[1]&.to_hash
@@ -143,23 +178,28 @@ module ProjetStateMachine
         transition to: :demandeur
       end
 
+      # AvisImpositionsController#create
       # TODO: pass by a specific controller action and redirect to trigger this
       event :validate_avis_imposition do
         transition to: :avis_imposition
       end
 
+      # OccupantsController#index
       event :validate_occupants do
         transition to: :occupants
       end
 
+      # DemandesController#update
       event :validate_demande do
         transition to: :demande
       end
 
+      # EligibilitiesController#show
       event :validate_eligibilite do
         transition to: :eligibilite
       end
 
+      # MisesEnRelationController#update
       before_transition to: :mise_en_relation do |projet, transition|
         eligible = projet.preeligibilite(projet.annee_fiscale_reference) != :plafond_depasse
         rod_response = transition.args[0]
@@ -179,6 +219,7 @@ module ProjetStateMachine
         transition to: :mise_en_relation
       end
 
+      # DossiersController#recommander_operateurs
       before_transition to: :operateurs_suggested do |projet, transition|
         operateur_ids = transition.args[0]
         if projet.operateur.present?
@@ -201,6 +242,7 @@ module ProjetStateMachine
         transition to: :operateurs_suggested
       end
 
+      # ChoixOperateurController#choose
       before_transition to: :operateur_contacted do |projet, transition|
         operateur_to_contact = transition.args[0]
         previous_operateur = projet.contacted_operateur
@@ -228,6 +270,7 @@ module ProjetStateMachine
         transition to: :operateur_contacted
       end
 
+      # EngagementOperateurController#create
       before_transition to: :operateur_committed do |projet, transition|
         committed_operateur = transition.args[0]
         raise "Commiting with an operateur expects a projet in `prospect` state, but got a `#{statut}` state instead" unless projet.prosect?

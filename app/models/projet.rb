@@ -352,14 +352,6 @@ class Projet < ApplicationRecord
     end
   end
 
-  def validate_theme_count
-    if 2 < themes.count
-      errors.add(:theme_ids, "vous ne pouvez en sélectionner que 2 maximum")
-      return false
-    end
-    true
-  end
-
   def change_demandeur(demandeur_id)
     demandeur = Occupant.find(demandeur_id)
     occupants.each { |occupant| occupant.update_attribute(:demandeur, (occupant == demandeur)) }
@@ -433,18 +425,6 @@ class Projet < ApplicationRecord
     assign_attributes(attributes)
     self.statut = :proposition_enregistree
     save
-  end
-
-  def transmettre!(instructeur)
-    invitation = invitations.find_by(intervenant: instructeur)
-    return false unless invitation.update(intermediaire: operateur)
-    self.date_depot = Time.now
-    self.statut = :transmis_pour_instruction
-    self.save
-    ProjetMailer.mise_en_relation_intervenant(invitation).deliver_later!
-    ProjetMailer.accuse_reception(self).deliver_later!
-    EvenementEnregistreurJob.perform_later(label: 'transmis_instructeur', projet: self, producteur: invitation)
-    true
   end
 
   def adresse

@@ -5,7 +5,7 @@ class DossiersOpalController < ApplicationController
 
   def create
     begin
-      opal_api.create_dossier!(@projet_courant, current_agent)
+      @projet_courant.create_dossier(current_agent)
       redirect_to(dossier_path(@projet_courant), notice: t('projets.creation_opal.messages.succes', id_opal: @projet_courant.opal_numero))
     rescue => e
       redirect_to(dossier_path(@projet_courant), alert: t('projets.creation_opal.messages.erreur', message: e.message))

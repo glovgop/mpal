@@ -90,7 +90,14 @@ describe Invitation do
       let(:projet2)      { create :projet, statut: :prospect }
       let(:projet3)      { create :projet, statut: :en_cours }
       let(:projet4)      { create :projet, statut: :proposition_enregistree }
-      let(:projet5)      { create :projet, statut: :proposition_proposee }
+      let(:projet5)      { create(
+        :projet,
+        statut: :proposition_proposee,
+        date_de_visite: Date.today,
+        travaux_ht_amount: rand(10.0..1000.0),
+        travaux_ttc_amount: rand(10.0..1000.0),
+        assiette_subventionnable_amount: rand(10.0..1000.0)
+      ) }
       let(:projet6)      { create :projet, statut: :transmis_pour_instruction }
       let(:projet7)      { create :projet, statut: :en_cours_d_instruction }
       let!(:invitation2) { create :invitation, intervenant: operateur, projet: projet2 }
